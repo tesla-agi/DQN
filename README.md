@@ -1,4 +1,4 @@
-# DQN — Deep Q-Network (from scratch)
+# DQN — Deep Q-Network (Dueling DQN + Double DQN)
 
 A clean, from-scratch implementation of DQN and its two headline improvements
 (Double DQN, Dueling DQN), built for **LunarLander-v3**. Part of a structured deep RL
