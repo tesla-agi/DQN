@@ -1,11 +1,12 @@
 import random
 
 import torch
+import torch.nn.functional as F
 from Q_network import QNetwork
 from replay_buffer import ReplayBuffer
 
 class DQNAgent:
-    def __init__(self,obs_dim,n_actions,hidden_dim=(128,128),dueling=False,use_double_dqn=False,gamma=0.99,lr=3e-4,
+    def __init__(self,obs_dim,n_actions,hidden_dim=128,dueling=False,use_double_dqn=False,gamma=0.99,lr=3e-4,
                  batch_size=64,grad_clip=10.0,target_upd_freq=1000,eps_start=1.0,eps_end=0.05,eps_decay_steps=50000,
                  buffer_capacity=100000,device='mps'):
 
@@ -47,6 +48,43 @@ class DQNAgent:
         else:
             with torch.no_grad():
                 return self.q_online(state).argmax(dim=1).item()
+
+
+    def store(self,state,action,reward,next_state,done):
+        self.replay_buffer.push(state,action,reward,next_state,done)
+
+    def sync_target(self):
+        self.q_target.load_state_dict(self.q_online.state_dict())
+
+    def update(self):
+        states,actions,rewards,next_states,dones=self.replay_buffer.sample(self.batch_size)
+        states=torch.from_numpy(states).float().to(self.device)
+        actions=torch.from_numpy(actions).to(self.device)
+        rewards=torch.from_numpy(rewards).float().to(self.device)
+        next_states=torch.from_numpy(next_states).float().to(self.device)
+        dones=torch.from_numpy(dones).float().to(self.device)
+        q_values=self.q_online(states)
+        q=q_values.gather(1,actions.unsqueeze(1)).squeeze(1)
+        with torch.no_grad():
+            if self.use_double_dqn:
+                next_actions=self.q_online(next_states).argmax(dim=1,keepdim=True)
+                q_next_max=self.q_target(next_states).gather(1,next_actions).squeeze(1)
+            else:
+                q_next=self.q_target(next_states)
+                q_next_max=q_next.max(dim=1)[0]
+            target=rewards+self.gamma*q_next_max*(1-dones)
+        loss=F.mse_loss(q,target)
+        self.optimizer.zero_grad()
+        loss.backward()
+        torch.nn.utils.clip_grad_norm_(self.q_online.parameters(),self.grad_clip)
+        self.optimizer.step()
+
+
+
+
+
+
+
 
 
 

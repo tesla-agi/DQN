@@ -29,7 +29,7 @@ class ReplayBuffer:
 
     def sample(self,batch_size):
         if self.correlated:
-            indices=np.arange((self.ptr-batch_size),self.ptr)
+            indices=np.arange((self.ptr-batch_size),self.ptr)%self.capacity    #self.capacity used because it won't give -ve indices
         else:
             indices=np.random.randint(0,self.size,size=batch_size)
 
